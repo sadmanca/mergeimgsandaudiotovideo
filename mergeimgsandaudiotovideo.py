@@ -1,4 +1,8 @@
 import os
+import subprocess
+import datetime
+import glob
+from PIL import Image
 
 def parse_timestamps(timestamps_file):
     timestamps = []
@@ -13,9 +17,7 @@ def calculate_durations(timestamps):
     durations = []
     for i in range(len(timestamps) - 1):
         start = timestamps[i]
-        #print(start)
         end = timestamps[i + 1]
-        #print(end)
         duration = calculate_duration(start, end)
         durations.append(duration)
     return durations
@@ -40,8 +42,15 @@ def generate_output_file(folder_path, timestamps, durations):
             file.write(f'file {file_path}\n')
             file.write(f'duration {durations[i]}\n')
 
+def get_image_dimensions(image_path):
+    with Image.open(image_path) as img:
+        width, height = img.size
+    return width, height
+
 if __name__ == "__main__":
-    folder_path = input("Enter the folder path: ")
+    #folder_path = input("Enter the folder path: ")
+    folder_path = "C:/Users/MSadm/Documents/Sadman/code/SIDEPROJECTS/mergeimgsandaudiotovideo/tests/imgs"
+    audio_path = "C:/Users/MSadm/Documents/Sadman/code/SIDEPROJECTS/mergeimgsandaudiotovideo/tests/imgs/a.m4a"
     timestamps_file = os.path.join(folder_path, 'timestamps.txt')
 
     if not os.path.exists(timestamps_file):
@@ -50,4 +59,19 @@ if __name__ == "__main__":
         timestamps = parse_timestamps(timestamps_file)
         durations = calculate_durations(timestamps)
         generate_output_file(folder_path, timestamps, durations)
+
         print("Image durations file generated successfully.")
+
+        # Run ffmpeg --help
+        output_file = datetime.datetime.now().strftime("%Y%m%d%H%M%S") + "_output.mp4"
+        # Get the path of the first image in the folder
+        image_path = glob.glob(os.path.join(folder_path, '*.jpg'))[0]
+
+        # Get the dimensions of the first image
+        image_dimensions = get_image_dimensions(image_path)
+
+        # Scale the video to match the dimensions of the first image
+        scale = f'scale={image_dimensions[0]}:{image_dimensions[1]}'
+
+        # Run ffmpeg command
+        subprocess.run(["ffmpeg", "-f", "concat", "-safe", "0", "-i", os.path.join(folder_path, "image_durations.txt"), "-i", audio_path, "-vf", f"{scale},format=yuv420p", "-c:v", "libx264", "-preset", "medium", "-crf", "23", "-c:a", "aac", "-b:a", "192k", "-shortest", output_file])
